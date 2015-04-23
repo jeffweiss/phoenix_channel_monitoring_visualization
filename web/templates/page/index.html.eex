@@ -1,0 +1,172 @@
+<style type="text/css">
+      svg {
+        font: 10px sans-serif;
+      }
+      .axis path,
+      .axis line {
+        fill: none;
+        stroke: #000;
+        shape-rendering: crispEdges;
+      }
+      div.bar {
+        display: inline-block;
+        width: 20px;
+        height: 75px;
+        background-color: teal;
+        margin-right: 2px;
+      }
+      rect {
+        -moz-transition: all 0.3s;
+        -o-transition: all 0.3s;
+        -webkit-transition: all 0.3s;
+        transition: all 0.3s;
+      }
+      rect.q3-9:hover,rect.q4-9:hover,rect.q5-9:hover,rect.q6-9:hover,rect.q7-9:hover,rect.q8-9:hover {
+        fill: orange;
+      }
+      #tooltip {
+        position: absolute;
+        width: 200px;
+        height: auto;
+        padding: 10px;
+        background-color: white;
+        -webkit-border-radius: 10px;
+        -moz-border-radius: 10px;
+        border-radius: 10px;
+        -webkit-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        -moz-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        pointer-events: none;
+      }
+      #tooltip.hidden {
+        display: none;
+      }
+      #tooltip p {
+        margin: 0;
+        font-family: sans-serif;
+        font-size: 16px;
+        line-height: 20px;
+      }
+
+</style>
+<div id="tooltip" class="hidden">
+  <p><span id="timestamp">100</span></p>
+  <p><span id="value">100</span></p>
+</div>
+
+<div class="row marketing">
+  <script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
+</div>
+<div id="svg">
+</div>
+<script>
+  var fullwidth = 600,
+      fullheight = 250;
+
+  var dataset = [];
+  var margin = { top: 10, right: 10, bottom: 20, left: 50};
+  var w = fullwidth - margin.left - margin.right;
+  var h = fullheight - margin.top - margin.bottom;
+
+  var maxValue = 25;
+
+  var sortOrder = false;
+  var normalize = false;
+
+  var svg = d3.select("#svg")
+              .append("svg")
+              .attr("width", fullwidth)
+              .attr("height", fullheight);
+  var chart = svg.append("g")
+                 .attr("transform", "translate(" + margin.left + ", " + margin.top + ")");
+
+  chart.classed("Blues", true);
+
+  var xScale = d3.scale.ordinal()
+                 .rangeRoundBands([0, w], 0.05);
+  var yNormalize = d3.scale.linear().range([0.05, 1]);
+  var yScale = d3.scale.pow().exponent(0.75)
+                     .domain([0, 1])
+                     .range([h, 0]);
+
+  var yAxis = d3.svg.axis().scale(yScale).orient("left");
+
+  var colorScale = d3.scale.quantile().range(d3.range(4,9));
+
+  var key = function(d) {
+    return parseFloat(d["timestamp"]);
+  }
+
+  var dateFromKey = function(d) {
+    return new Date(key(d)/1000);
+  }
+
+  var value = function(d) {
+    return parseFloat(d["milliseconds"]);
+  }
+
+  var timeFormat = d3.time.format("%c");
+
+  var duration = 250;
+  var ease = "cubic-in-out";
+
+  var height = function(d) {
+    return h - (normalize ? yScale(yNormalize(value(d))) : yScale(value(d)) );
+  }
+
+  var yStart = function(d) {
+    return (normalize ? yScale(yNormalize(value(d))) : yScale(value(d)) );
+  }
+
+  var updateDomains = function(dataset) {
+    xScale.domain(d3.range(dataset.length));
+    if (normalize) {
+      yNormalize.domain(d3.extent(dataset, value));
+    } else {
+      var min = d3.min(dataset, value);
+      var max = d3.max(dataset, value);
+      var diff = max - min;
+      if (max < h) min = 0;
+
+      yScale.domain([min * 0.998, max]).nice();
+    }
+    colorScale.domain(dataset.map(value));
+  }
+
+  chart.append("g")
+       .attr("class", "x axis")
+       .call(yAxis);
+
+  chart.selectAll("rect")
+       .data(dataset, key)
+       .enter()
+       .append("rect")
+       .attr("x", function(d, i) {
+         return xScale(i);
+       })
+       .attr("y", yStart)
+       .attr("width", xScale.rangeBand())
+       .attr("height", height)
+       .sort(function(a,b) { return d3.descending(key(a), key(b)); })
+       .attr("class", function(d) { return "q" + colorScale(value(d))+"-9";})
+       .on("mouseover", function(d) {
+         var xPosition = parseFloat(d3.select(this).attr("x")) + xScale.rangeBand() / 2;
+         var yPosition = parseFloat(d3.select(this).attr("y")) / 2 + h / 2;
+
+         var tooltip = de.select("#tooltip")
+           .style("left", xPosition + "px")
+           .style("top", yPosition + "px")
+
+        tooltip.select("#value")
+               .text(value(d))
+        tooltip.select("#timestamp")
+               .text(timeFormat(dateFromKey(d)));
+
+        d3.select("#tooltip").classed("hidden", false);
+       })
+       .on("mouseout", function() {
+         d3.select("#tooltip").classed("hidden", true);
+       });
+
+</script>
+
